@@ -420,7 +420,7 @@ class Majestic_Turbo_Settings {
 		} elseif ( $avif_on ) {
 			echo '<p>' . esc_html__( 'AVIF is on: each converted file also gets an AVIF sibling, kept only when it is smaller than the WebP beside it.', 'majestic-turbo' ) . '</p>';
 		} else {
-			echo '<p>' . esc_html__( 'This server can write AVIF. It is switched off above because it takes about eight times as long to encode, and at the quality that matches WebP the files are only a little smaller - about 17% at quality 50, which is where the default sits.', 'majestic-turbo' ) . '</p>';
+			echo '<p>' . esc_html__( 'This server can write AVIF. It is switched off above because it takes several times as long to encode, and at the quality that matches WebP sharpness the files are only somewhat smaller.', 'majestic-turbo' ) . '</p>';
 		}
 
 		echo self::images_form( 0, __( 'Convert the media library', 'majestic-turbo' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.

@@ -112,7 +112,7 @@ function majestic_turbo_option_definitions() {
 		),
 		'avif_images'        => array(
 			'label'       => __( 'AVIF images', 'majestic-turbo' ),
-			'description' => __( 'Offer an AVIF version in front of the WebP one, kept only when it is smaller - than the WebP beside it when there is one, otherwise than the original. Tests on card thumbnails came out about 17% smaller than WebP at matching sharpness, for roughly eight times the encoding time, which is why it is off by default.', 'majestic-turbo' ),
+			'description' => __( 'Offer an AVIF version in front of the WebP one, kept only when it is smaller - than the WebP beside it when there is one, otherwise than the original. Encoding takes several times longer than WebP and the size win is modest on the small thumbnails a card grid serves, which is why it is off by default.', 'majestic-turbo' ),
 			'type'        => 'checkbox',
 			'default'     => 'off',
 		),

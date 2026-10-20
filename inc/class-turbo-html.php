@@ -384,13 +384,10 @@ class Majestic_Turbo_HTML {
 	 * Widths and heights are left alone: guessing them would trade a layout
 	 * shift for a wrong one.
 	 *
-	 * Carrying the first screenful's pictures in the document is the other half.
-	 * On a measured homepage, three inlined thumbnails over three throttled
-	 * mobile runs moved the median largest contentful paint from 1,998 ms to
-	 * 1,803 ms and the spread from 156 ms to 73 ms, with 17 image requests
-	 * instead of 20. Six was no better than three - the document grew by more
-	 * than the requests it saved - so three is the default and
-	 * `majestic_turbo_inline_images` changes it.
+ * Carrying the first screenful's pictures in the document is the other half.
+ * Inlining takes those requests out of the queue the largest paint waits on.
+ * Past three the document grows by more than the requests it saves, so three
+ * is the default and `majestic_turbo_inline_images` changes it.
 	 *
 	 * @param string $html Page markup.
 	 * @return string
@@ -731,8 +728,8 @@ class Majestic_Turbo_HTML {
 		 * Either every candidate has a WebP file or the image is offered as
 		 * JPEG. A source list with a hole in it is worse than no source: the
 		 * browser cannot pick the missing width, so it takes the next size up
-		 * - and one card whose 320 wide WebP was missing downloaded the 480
-		 * wide one instead, 30 KB for a 187 px slot.
+		 * - and a card whose 320 wide WebP was missing downloaded the next
+		 * size up instead of its own.
 		 */
 		if ( '' !== $srcset ) {
 			foreach ( explode( ',', $srcset ) as $candidate ) {

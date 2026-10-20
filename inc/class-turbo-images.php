@@ -17,12 +17,12 @@
  *
  * AVIF is the second format, and it is held to a stronger test than WebP: it
  * is kept only when it beats the WebP file it would replace, because there is
- * no point handing a browser a newer format that is not smaller. Measured on
- * a tube site's own thumbnails at matched SSIM, that turns out to be a narrow
- * win - about 1% at 336px, 3% at 320px and 8% at 480px, and 9% *larger* at
- * 150px - for roughly eight times the encoding time. That is why the switch
- * ships off: a site whose library holds larger photographs can turn it on, and
- * a site serving 240-480px cards loses nothing by leaving it alone.
+ * no point handing a browser a newer format that is not smaller. On the small
+ * thumbnails a card grid uses that turns out to be a narrow win, and at the
+ * smallest sizes the file can come out larger, for several times the encoding
+ * time. That is why the switch ships off: a site whose library holds larger
+ * photographs can turn it on, and a site serving 240-480px cards loses nothing
+ * by leaving it alone.
  *
  * @package Majestic Turbo
  */
@@ -41,23 +41,22 @@ class Majestic_Turbo_Images {
 	 * shows up in a card grid: the theme's thumbnails are already tight JPEGs,
 	 * and at 82 the WebP of a 320x180 crop came out no smaller - so that size
 	 * had no WebP file at all, and a browser choosing between the remaining
-	 * candidates jumped to the 480 wide one. Measured on the theme's own
-	 * thumbnails, 75 is where every size beats its JPEG (48 KB -> 34 KB on a
-	 * 480x270 card) and the picture is still indistinguishable at 187 CSS px.
+ * candidates jumped to the 480 wide one. 75 is where each size still beats
+ * its JPEG in the widths a card grid serves, and the picture is still
+ * indistinguishable at the size the grid displays it.
 	 */
 	const QUALITY = 75;
 
 	/**
 	 * Default AVIF quality.
 	 *
-	 * Chosen from a sweep on a tube site's own thumbnails, printed in README.md.
-	 * Two numbers decide it. At quality 55 the AVIF matched WebP-at-75 on
-	 * sharpness exactly and was only 1% smaller at 336x189 - so the conversion
-	 * kept 18 of 278 card files and the whole pass saved almost nothing. At 50
-	 * it is 17% smaller than the same WebP for 0.004 of SSIM, and 480x270
-	 * comes out 17% smaller at the *same* SSIM the WebP had.
-	 *
-	 * The number is a starting point, not a promise: `majestic_turbo_avif_quality`
+ * Chosen so the AVIF has to be meaningfully smaller than the WebP at matched
+ * sharpness before it is kept. A quality that merely ties the WebP's size at
+ * matched sharpness converts almost nothing and saves the pass little; the
+ * default sits below that point, where the files are smaller for a small loss
+ * of detail.
+ *
+ * The number is a starting point, not a promise: `majestic_turbo_avif_quality`
 	 * moves it, and the conversion keeps the file only when it beats the WebP
 	 * beside it, so a quality that is too high costs the pass and never a byte.
 	 */
@@ -88,7 +87,7 @@ class Majestic_Turbo_Images {
 	 *
 	 * The upload path is synchronous: WordPress does not answer the request
 	 * until every size is written, and this module adds an encode per size per
-	 * format on top - AVIF taking eight times as long as WebP on the same
+	 * format on top - AVIF taking several times as long as WebP on the same
 	 * crop. A large poster on a shared host can therefore push an upload past
 	 * `max_execution_time`, and a fatal there is worse than an upload without
 	 * converted files: the attachment metadata never gets stored. A deadline
@@ -547,8 +546,8 @@ class Majestic_Turbo_Images {
 		 * differs from the file's: it resets to the default for the format,
 		 * which is 82 for AVIF and 86 for WebP. Every file this module wrote
 		 * before this filter was therefore at 86 rather than at the quality
-		 * the setting named - 9 KB where 5.6 KB was asked for on a 336 px
-		 * card. The filter is the only hook that survives that reset, so it is
+		 * the setting named, which made every converted file larger than the
+		 * setting had asked for. The filter is the only hook that survives that reset, so it is
 		 * attached for the one save and removed straight after.
 		 */
 		$mime   = 'image/' . $format;

@@ -14,16 +14,18 @@ the ones worth checking on a new install, and both are explained under
 special build: the theme's player prefixes are added to the CSS safelist only
 while it is the active template, and every other theme starts without them.
 
-Every rewrite is switchable, every generated file lives in `uploads/majestic-turbo`,
-and deleting the plugin leaves the media library, the theme and the database
-untouched apart from its own two option rows.
+Every rewrite is switchable, every generated file lives in
+`uploads/majestic-turbo`, apart from the one `advanced-cache.php` drop-in the
+early cache may write, and deleting the plugin leaves the media library, the
+theme and the database untouched apart from its own two option rows.
 
 ## Requirements
 
 - WordPress 6.5 or newer.
 - PHP 7.4 or newer.
-- A writable uploads directory. Without one the plugin builds nothing and the
-  page is served as WordPress rendered it.
+- A writable uploads directory for the stylesheets, scripts and stored pages.
+  Without one nothing is written: the CSS and JavaScript passes leave the
+  page's own files in place, while the HTML and image passes still run.
 - A writable `wp-content` **if** you want the early drop-in, plus
   `define( 'WP_CACHE', true );` in `wp-config.php`. Without either, the page
   cache still answers, just after WordPress has loaded.
@@ -49,13 +51,19 @@ untouched apart from its own two option rows.
 | WebP images | Writes a smaller WebP sibling beside each JPEG or PNG and offers it in a `<picture>`. Skipped when the host cannot write WebP. |
 | AVIF images | Writes an AVIF sibling in front of the WebP, kept only when it is smaller than the WebP - or than the original when there is no WebP. Off by default, skipped when the host cannot write AVIF. |
 | Drop unused block CSS | Skips the block library and global styles when the page contains no blocks. |
-| Cache pages | Stores the finished HTML of anonymous visits and answers the next one without running WordPress. |
+| Cache pages | Stores the finished HTML of anonymous visits and answers the next one from the stored document. |
 | Serve before WordPress | Writes the `advanced-cache.php` drop-in, so a stored page is answered before core, the plugins and the database load. Requires `define( 'WP_CACHE', true );` in wp-config.php. |
 | Cache lifetime | How long a stored page is served, in minutes. A publish, edit, comment, menu, widget or site-setting change flushes the whole cache. |
 
 The two CSS switches that reduce or split a sheet need **Combine CSS**, because
 they work on the combined file; with combining off the page keeps its own
 stylesheets and those two switches do nothing.
+
+Four settings take text rather than a switch: the **CSS safelist**,
+**Excluded stylesheets**, **Excluded scripts** and **Preconnect hosts**. The
+first three decide what the CSS and JavaScript passes may touch; the last is
+announced in the head so the DNS and TLS handshake to a video CDN, an ad server
+or an analytics endpoint overlaps the first paint.
 
 ## Generated files
 
@@ -69,32 +77,35 @@ uploads/majestic-turbo/
 ```
 
 Filenames carry a hash of their contents, so a change produces a new file and a
-browser or CDN never needs revalidating one. Old files are pruned after a day
-and never while the current page still names them.
+browser or CDN never needs revalidating one. Stylesheets and scripts are pruned
+once they are a day old, keeping the twelve newest and never removing one the
+current page still names; a stored page is dropped when it is twice its
+lifetime old.
 
 The store is plain files, so every server that can run WordPress can use it:
 no rewrite rule, no `location` block, no module and no control-panel setting.
 Where the server reads `.htaccess` (Apache, LiteSpeed) the plugin also writes
-one, which denies the stored pages and gives the generated css/js a year of
-immutable caching. Where it does not - nginx, Caddy, IIS, a host that hardens
+one, which denies the stored pages and gives the generated css/js a one-year
+expiry. Where it does not - nginx, Caddy, IIS, a host that hardens
 uploads - nothing is missing: the plugin never asks the server to interpret a
 request, a stored page has a salted hash for a name and a gzipped body, and each
 stylesheet or script carries a hash of its own contents in its filename, so a
 browser that revalidates one is answered `304` instead of downloading it again.
 No server configuration is documented or required, because none is needed.
 
-Stored pages are named with `wp_salt('nonce')`, not only with the URL, so a
-visitor cannot compute the filename of a page they did not store - and rotating
-the salts retires the whole cache. A page that is already open in a browser is
+Stored pages are named with a hash of the site's salt (`NONCE_SALT` in
+`wp-config.php`), not only with the URL, so a visitor cannot compute the
+filename of a page they did not store - and rotating the salts retires the
+whole cache. A page that is already open in a browser is
 revalidated with `If-Modified-Since` and answered with `304 Not Modified`, which
 is a header line instead of the document.
 
 ## Serving before WordPress
 
 A page cache that runs on `plugins_loaded` has already paid for core, every
-active plugin, the database connection and the theme. On this machine that is
-about 20 ms; on shared hosting it is usually the largest part of time to first
-byte. The optional drop-in moves the answer in front of all of it.
+active plugin, the database connection and the theme. That work is small on a
+fast local machine and usually the largest part of time to first byte on shared
+hosting. The optional drop-in moves the answer in front of all of it.
 
 With **Serve before WordPress** on and `define( 'WP_CACHE', true );` in
 `wp-config.php`, the plugin keeps `wp-content/advanced-cache.php` in place.
@@ -116,20 +127,10 @@ overwrites another caching plugin's drop-in, and it checks that its two class
 files still exist, so a plugin folder deleted by FTP degrades to an ordinary
 uncached request instead of a fatal.
 
-Measured on a local install (PHP 8.5, nginx, HTTPS in front of curl), home page
-already stored, twelve requests each, interleaved so a busy machine affects both:
-
-| | in-plugin cache | early drop-in |
-|---|---|---|
-| Median TTFB | 70 ms | 49 ms |
-| Range | 46-96 ms | 38-75 ms |
-| Body | - | byte-identical |
-
-A request with a `wordpress_logged_in_*` cookie and a POST both bypassed the
-early path, and an `If-Modified-Since` request was answered `304` from the
-drop-in. The gain here is small because a local WordPress boot is small and the
-TLS handshake is not; the same code removes the whole boot on a host where that
-boot is 100-300 ms.
+The body is byte-identical either way; what changes is how much work happens
+before the first byte. A request with a `wordpress_logged_in_*` cookie and a
+POST both bypass the early path, and an `If-Modified-Since` request is answered
+`304` from the drop-in.
 
 ## Command line
 
@@ -151,55 +152,6 @@ wp majestic-turbo images --status
 wp majestic-turbo purge
 ```
 
-## Measurements this ships with
-
-The defaults were picked from runs recorded while the modules were written, on
-a tube site's own 240-480 px card thumbnails:
-
-- **WebP quality 75.** At 82 the 320x180 crop came out no smaller than its
-  JPEG, so that size had no WebP file and the browser jumped to the 480 wide
-  candidate; at 75 every size beats its JPEG (48 KB → 34 KB on a 480x270 card).
-- **AVIF quality 50, off by default.** At 55 it matched WebP-75 on sharpness
-  and was only 1% smaller at 336x189, keeping 18 of 278 files. At 50 it is about
-  17% smaller than the same WebP for a 0.004 drop in SSIM, and 480x270 is 17%
-  smaller at the same SSIM, for roughly eight times the encoding time.
-- **Three inlined thumbnails.** Inlining the first three over three throttled
-  mobile runs moved median LCP from 1,998 ms to 1,803 ms and the spread from
-  156 ms to 73 ms, with 17 image requests instead of 20. Six was no better than
-  three, because the document grew by more than the requests it saved.
-
-All three can be moved with filters: `majestic_turbo_webp_quality`,
-`majestic_turbo_avif_quality`, `majestic_turbo_inline_images`.
-
-## Measured on a live install
-
-A Majestic Tube install on PHP 8.5.7 and nginx 1.26, default settings, home
-page of 30 cards. The comparison is the same page with the plugin disabled and
-enabled, measured at the wire (gzip), not on disk:
-
-| | plugin off | plugin on |
-|---|---|---|
-| HTML | 14.6 KB gz | 43.7 KB gz (61 KB CSS + 26 KB AVIF inline, raw) |
-| Stylesheet | 34.8 KB, 1 request | 0 requests |
-| JavaScript | 19.6 KB, 1 request | 9.2 KB, 1 request |
-| **First load** | **69.0 KB, 2 requests** | **52.9 KB, 1 request** |
-| Repeat visit | HTML again | `304`, 0 bytes |
-| TTFB, cached | - | 0.04-0.08 s (early drop-in; see below) |
-| TTFB, uncached | 0.21 s (home) | 0.30 s (home), 0.35-0.53 s (archive, post) |
-
-The visible text of the two pages is byte-identical (3,171 characters, no word
-differences) and every image keeps its `srcset` and `sizes`. The first twelve
-cards are `loading="eager" fetchpriority="high"`, the rest are `lazy`, and no
-`data-loading` attribute is produced.
-
-The page is bigger before compression because the used CSS and three AVIF
-thumbnails now travel inside it, and smaller after compression because 19 KB of
-block CSS is gone and the script is minified. What it buys is the round trip:
-one request instead of two, no render-blocking stylesheet, and a 304 instead of
-the document on the next visit. The 26 KB of base64 AVIF is the reason the
-inlined count defaults to three: `majestic_turbo_inline_images` sets it, and 0
-turns it off for a site on a tight bandwidth budget.
-
 ## Filters
 
 `majestic_turbo_page_cacheable`, `majestic_turbo_cache_ttl`,
@@ -207,8 +159,10 @@ turns it off for a site on a tight bandwidth budget.
 `majestic_turbo_inline_css_limit`, `majestic_turbo_fold_bytes`,
 `majestic_turbo_eager_images`, `majestic_turbo_inline_images`,
 `majestic_turbo_inline_bytes`, `majestic_turbo_upload_budget`,
-`majestic_turbo_image_batch`, `majestic_turbo_warm_urls`,
-`majestic_turbo_warm_delay`, `majestic_turbo_warm_timeout`.
+`majestic_turbo_image_batch`, `majestic_turbo_webp_quality`,
+`majestic_turbo_avif_quality`, `majestic_turbo_warm_urls`,
+`majestic_turbo_warm_delay`, `majestic_turbo_warm_timeout` and
+`majestic_turbo_option_definitions`.
 
 ## Things to know before switching it on
 

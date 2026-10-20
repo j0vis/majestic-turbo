@@ -263,8 +263,9 @@ class Majestic_Turbo_CSS {
 		$css = (string) $css;
 
 		/*
-		 * The combined bundle on disk is already minified, and minifying 80KB
-		 * again on every render is the most expensive thing this class does. A
+		 * The combined bundle on disk is already minified, and minifying a sheet
+		 * that size again on every render is the most expensive thing this class
+		 * does. A
 		 * sheet with no newline and no comment is treated as minified: a
 		 * hand-written one almost always has at least one of the two, and the
 		 * check is a strpos rather than a guess.
